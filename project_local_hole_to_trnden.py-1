@@ -1,0 +1,112 @@
+import sys
+from utils_holprt import *
+
+#filnam = sys.argv[1]
+
+#file_exists(filnam)
+
+#natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(filnam)
+#write_cube_file('test.cube',natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid)
+
+##Test of constructing transition density matrix start
+#ihole, ipart, cicoef,  osc, Eorb = read_cp2k_output(filnam)
+
+#istate=0
+#natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,orbhol_nat,orbprt_nat = trnden_1state(ihole[istate],ipart[istate],cicoef[istate])
+#Test of constructing transition density matrix end
+
+#natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(filnam)
+# zlayer for SiH(1H)
+#layer = [4.7572445,14.271448,23.7856515,33.3001405,42.814344,52.3285475]
+# zlayer for SiH(1H) 6 layers + vacuum
+#zlayer = [4.757299,14.2714225,23.785546,33.300144,42.8142675,52.328391]
+#for ilayer in range(1,7):
+   #list_points_intgrl = layer_of_integration(abc_grid,kabc,ilayer,zlayer,True)
+##Test of constructing transition density matrix end
+
+##Test of localizing orbitals start
+
+#orb_list = []
+#orb_cube_list = []
+#for iorb in range(469,481):
+#    orb_list.append(iorb)
+#    cubefile = str(iorb) + '.cube'
+#    file_exists(cubefile)
+#    print(f'Reading {cubefile}')
+#    natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(cubefile)
+#    orb_cube_list.append(cube_grid)
+#    
+#
+#
+## zlayer for SiH(1H) 6 layers + vacuum
+#zlayer = [4.757299,14.2714225,23.785546,33.300144,42.8142675,52.328391]
+#for layer in range(len(zlayer)):
+#    ilayer = layer + 1
+#    list_points_intgrl = layer_of_integration(abc_grid,kabc,ilayer,zlayer,False)
+#
+#    n_locorb, locorb_cube = localize_orbitals(orb_list,orb_cube_list,list_points_intgrl)
+#    for locorb in range(n_locorb):
+#        filnam = 'LOCORB_layer' + str(ilayer) + '_' + str(locorb) + '.cube'
+#        write_cube_file(filnam,natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,locorb_cube[locorb])
+##Test of localizing orbitals end
+
+#Test of projecting a hole orbital onto the density matrix to get its associated particle orbital Start
+outfile = 'SiH_4X4X6.out'
+ihole, ipart, cicoef,  osc_list, Eorb, Estate = read_cp2k_output(outfile)
+initlayer=5
+holorb_of_initlayer = 1
+holcube = 'LOCORB_layer' + str(initlayer) + '_' + str(holorb_of_initlayer)
+holcubefile = holcube + '.cube'
+CTfile = holcube + '_CT_dist.txt'
+f = open(CTfile, "w")
+f.write("#State   Energy      OSC           Norm Orb.   Layer weights                                                           CT dist / Bohr"+"\n")
+
+#parameters for plotting CT dist vs E in Gaussian broadening
+Egrid_init = 2.9
+Egrid_final = 4.0
+nEgrid = 1000
+Egrid_step = (Egrid_final - Egrid_init)/float(nEgrid)
+Egrid = np.zeros([nEgrid])
+CTdist_Egrid = np.zeros([nEgrid])
+gausig = 0.005 #in eV^-1
+
+# zlayer for SiH(1H) 6 layers + vacuum
+zlayer = [4.757299,14.2714225,23.785546,33.300144,42.8142675,52.328391]
+
+for iEgrid in range(nEgrid):
+    Egrid[iEgrid] = Egrid_step*iEgrid + Egrid_init
+
+nstate = len(Estate)
+for state in range(1,nstate+1):
+    istate = state -1
+    if osc_list[istate] > 0.1 :
+        print(f'\nWorking on State {state}')
+        natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,orbhol_nat,orbprt_nat = trnden_1state(ihole[istate],ipart[istate],cicoef[istate])
+       #holcubefile = 'LOCORB_layer3_1.cube'
+        prtfilname = holcube + '_state' + str(state) + '.cube' 
+        projected_hole_cube = holprt_proj_trnden(holcubefile,sglval,orbhol_nat,orbprt_nat,'HOLPRJ2PRT',prtfilname)
+        Lpbc = False
+        dnorm = np.sqrt(np.sum(projected_hole_cube*projected_hole_cube))
+        CTdist, layer_weights = layer_CT_distance(projected_hole_cube,zlayer,initlayer,abc_grid,kabc,crdorg,Lpbc)
+       #gaussian broadening of the CT distance
+        for iEgrid in range(nEgrid):
+            CTdist_Egrid[iEgrid] +=  CTdist * gaussian(Egrid[iEgrid],Estate[istate],gausig)
+        small = 0.1
+        if dnorm > small:
+          # print("{:4d} {:12.6f}*10 \n".format(state,Estate[istate],osc_list[istate],layer_weights))
+            print("".join(f"{state:4d} {Estate[istate]:12.6f} {osc_list[istate]:12.6f} {dnorm:12.6f}"),end='')
+            print("".join(f"{elm:12.6f}" for elm in layer_weights),end='')
+            print("".join(f"{CTdist:12.6f}"))
+            f.write("".join(f"{state:4d} {Estate[istate]:12.6f} {osc_list[istate]:12.6f} {dnorm:12.6f}"))
+            f.write("".join(f"{elm:12.6f}" for elm in layer_weights))
+            f.write("".join(f"{CTdist:12.6f}") + "\n")
+
+
+
+f.close()
+CTdist_E_profile = holcube + '_CTdist_E.txt'
+f = open(CTdist_E_profile, 'w')
+f.write("#E in eV      CT dist in Bohr\n")
+for iEgrid in range(nEgrid):
+    f.write("".join(f"{Egrid[iEgrid]:12.6f} {CTdist_Egrid[iEgrid]:12.6f}" + "\n"))
+#Test of projecting a hole orbital onto the density matrix to get its associated particle orbital End
