@@ -3002,7 +3002,7 @@ def diabatize_orbitals(list_canon_orb,list_reforb_cube,cp2k_output,lwrite=False)
             filnam = 'DIAB_ORB'+str(idiab)+'.cube'
             write_cube_file(filnam,natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,diabcube,'\n')
 
-def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,list_group_diabs_start_ind=[],list_group_diabs_properties=[],lwrite=False):
+def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,list_group_diabs_start_ind=[],list_group_diabs_properties=[],lwrite=False,l_include_S0=True):
     """
     Diabatize a set of TDDFT adiabatic states
 #list of reference states is a 4-fold nested list
@@ -3023,11 +3023,15 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
     list_npo_cube = []
     list_read_cmo_idx  = []
     list_read_cmo_cube = []
+    if l_include_S0: list_adiabs.append(0) #iadiab = 0 for ground state S0
     n_adiab = len(list_adiabs)
     n_diab = len(list_ref_states)
     Rotmat_adiab_diab = np.zeros([n_adiab,n_diab])
     Estate_in_adiab_list = []
     for iadiab in list_adiabs:
+        if iadiab == 0:
+            Estate_in_adiab_list.append(0.0)
+            continue
         istate = iadiab - 1
         natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,orbhol_nat,orbprt_nat,list_read_cmo_idx,list_read_cmo_cube = trnden_1state(ihole[istate],ipart[istate],cicoef[istate],list_read_cmo_idx,list_read_cmo_cube,l_get_nhpo_cube=False)
         list_sglval.append(sglval)
@@ -3038,19 +3042,32 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
    #release memory
    #del list_read_cmo_cube
 
+        
+
 
    #Check orthonormality of adiabatic states
     S_adiab_adiab = np.zeros([n_adiab,n_adiab])
-    for i in range(n_adiab):
-        istate = list_adiabs[i] - 1
-        amplds_i = cicoef[istate]
-        holes_i = ihole[istate]
-        parts_i = ipart[istate]
-        for j in range(i,n_adiab):
-            jstate = list_adiabs[j] - 1
-            amplds_j = cicoef[jstate]
-            holes_j = ihole[jstate]
-            parts_j = ipart[jstate]
+    for ii, i in enumerate(list_adiabs):
+       #S0 constructed based on S1
+        if i == 0:
+            amplds_i = cicoef[0]
+            holes_i = ihole[0]
+            parts_i = holes_i
+        else:
+            istate = i - 1
+            amplds_i = cicoef[istate]
+            holes_i = ihole[istate]
+            parts_i = ipart[istate]
+        for jj, j in enumerate(list_adiabs):
+            if j == 0:
+                amplds_j = cicoef[0]
+                holes_j = ihole[0]
+                parts_j = holes_j
+            else:
+                jstate = j - 1
+                amplds_j = cicoef[jstate]
+                holes_j = ihole[jstate]
+                parts_j = ipart[jstate]
 
             adiabs_overlap = 0.0
            #for ii, amplitude_i in enumerate(amplitudes_i):
@@ -3070,14 +3087,17 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
                     
                     if hole_i == hole_j and part_i == part_j:
                         adiabs_overlap += ampld_i*ampld_j
+                        if ii == jj and ( ii == 0 or ii == n_adiab-1):
+                            print(f'Adiab {ii}, hole {hole_i}, part {part_i}, ampld_i {ampld_i}, ampld_j {ampld_j}, adiabs_overlap {adiabs_overlap}')
                         
 
-            S_adiab_adiab[i,j]=adiabs_overlap
-            S_adiab_adiab[j,i]=adiabs_overlap
+            S_adiab_adiab[ii,jj]=adiabs_overlap
+            S_adiab_adiab[jj,ii]=adiabs_overlap
 
     print(f'\nOverlap matrix between adiabats')
     print_matrix(S_adiab_adiab)
     print(f'Determinant of the matrix: {np.linalg.det(S_adiab_adiab)}')
+    sys.exit()
 
     list_read_diab_orb  = []
     list_read_diab_cube = []
@@ -3122,7 +3142,7 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
                 ind_ref_prt = list_read_diab_orb.index(partcube_file)
                 ref_hole_cube = list_read_diab_cube[ind_ref_hol]
                 ref_part_cube = list_read_diab_cube[ind_ref_prt]
-                for iadiab in range(len(list_adiabs)):
+                for iadiab in range(n_adiab):
                    #singular_values = list_sglval[iadiab]
                    #nho_cubes = list_nho_cube[iadiab]
                    #npo_cubes = list_npo_cube[iadiab]
@@ -3131,10 +3151,16 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
                    #    hole_overlap = np.sum(nho_cubes[inat_pair]*ref_hole_cube)
                    #    part_overlap = np.sum(npo_cubes[inat_pair]*ref_part_cube)
                    #    S_adiab_refhp += amplitude*hole_overlap*part_overlap
-                    istate = list_adiabs[iadiab] - 1
-                    amplds_adiab = cicoef[istate]
-                    holes_adiab = ihole[istate]
-                    parts_adiab = ipart[istate]
+                    if list_adiabs[iadiab] != 0:
+                        istate = list_adiabs[iadiab] - 1
+                        amplds_adiab = cicoef[istate]
+                        holes_adiab = ihole[istate]
+                        parts_adiab = ipart[istate]
+                    else:
+                   #Construct S0 based on S1
+                        amplds_adiab = cicoef[0]
+                        holes_adiab = ihole[0]
+                        parts_adiab = holes_adiab
                     for ihp_pair in range(len(amplds_adiab)):
                          ampld = amplds_adiab[ihp_pair]
                          hole_adiab = holes_adiab[ihp_pair]
@@ -3200,7 +3226,7 @@ def diabatize_states(list_adiabs,list_ref_states,cp2k_output,Eref=0.0,small=0.1,
     print(f'\nLeftover length^2 of all adiabs out of all diabs: {leftover_prjval}')
 
    #Get the reduced adiabatic space and do diabatization within this space
-    print(f'\nWorking on reduced adiabatic space')
+    print(f'\nWorking on reduced adiabatic space, n_adiab = {n_adiab}, n_diab = {n_diab}')
     reduced_adiabs_space = acumprj_eigvec[:,n_adiab-n_diab:]
     Eadiab_diag_mat = np.diag(np.array(Estate_in_adiab_list))
     print(reduced_adiabs_space.shape,Eadiab_diag_mat.shape)
