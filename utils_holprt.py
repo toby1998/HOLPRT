@@ -269,179 +269,179 @@ def read_cp2k_output(filnam,small=0.1):
 
     f.close()
 
-    return ihole,ipart,cicoef,osc_list,Eorb, Elist, E_scf
+    return ihole,ipart,cicoef,osc_list,Eorb, np.array(Elist), E_scf
 
-def trnden_1state(holes,parts,cicoef,list_read_orbs=[],list_read_cube=[],l_get_nhpo_cube=True):
-    """
-    Construct transition density matrix for one TDDFT state
-    """
+#def trnden_1state(holes,parts,cicoef,list_read_orbs=[],list_read_cube=[],l_get_nhpo_cube=True):
+#   """
+#   Construct transition density matrix for one TDDFT state
+#   """
 
-    debug = False
+#   debug = False
 
-    nex = len(cicoef)
+#   nex = len(cicoef)
 #   print(nex)
 #   for i in range(nex):
 #       print(holes[i],parts[i],cicoef[i])
 
-    unique_holes = []
-    unique_parts = []
+#   unique_holes = []
+#   unique_parts = []
 
-    for iex in range(nex):
-        if iex == 0:
-            unique_holes.append(holes[iex])
-            unique_parts.append(parts[iex])
-        else:
-            Lfound_hole = False
-            Lfound_part = False
-            for i, unihole in enumerate(unique_holes):
-                if unihole == holes[iex]: Lfound_hole = True
+#   for iex in range(nex):
+#       if iex == 0:
+#           unique_holes.append(holes[iex])
+#           unique_parts.append(parts[iex])
+#       else:
+#           Lfound_hole = False
+#           Lfound_part = False
+#           for i, unihole in enumerate(unique_holes):
+#               if unihole == holes[iex]: Lfound_hole = True
 
-            for i, unipart in enumerate(unique_parts):
-                if unipart == parts[iex]: Lfound_part = True
+#           for i, unipart in enumerate(unique_parts):
+#               if unipart == parts[iex]: Lfound_part = True
 
-            if not Lfound_hole: unique_holes.append(holes[iex])
-            if not Lfound_part: unique_parts.append(parts[iex])
+#           if not Lfound_hole: unique_holes.append(holes[iex])
+#           if not Lfound_part: unique_parts.append(parts[iex])
 
-    print(unique_holes)
-    print(unique_parts)
+#   print(unique_holes)
+#   print(unique_parts)
 
-   #Check norm of the ci coefficients
-    cicoef=np.array(cicoef)
-    dnorm = np.linalg.norm(cicoef, 2)
-    print(f'Norm of CI Coefficients: {dnorm}')
-   #normalizing the cicoef
-    cicoef_normal = cicoef / dnorm
-    dnorm = np.linalg.norm(cicoef_normal, 2)
-    assert np.allclose(dnorm,1.0)
+#  #Check norm of the ci coefficients
+#   cicoef=np.array(cicoef)
+#   dnorm = np.linalg.norm(cicoef, 2)
+#   print(f'Norm of CI Coefficients: {dnorm}')
+#  #normalizing the cicoef
+#   cicoef_normal = cicoef / dnorm
+#   dnorm = np.linalg.norm(cicoef_normal, 2)
+#   assert np.allclose(dnorm,1.0)
 
-    mhorb = len(unique_holes)
-    nporb = len(unique_parts)
-    tdm_cmo = np.zeros([mhorb,nporb])
+#   mhorb = len(unique_holes)
+#   nporb = len(unique_parts)
+#   tdm_cmo = np.zeros([mhorb,nporb])
 
-    for iex in range(nex):
-        for ihorb in range(mhorb):
-            if unique_holes[ihorb] == holes[iex]: break
+#   for iex in range(nex):
+#       for ihorb in range(mhorb):
+#           if unique_holes[ihorb] == holes[iex]: break
 
-        for iporb in range(nporb):
-            if unique_parts[iporb] == parts[iex]: break
+#       for iporb in range(nporb):
+#           if unique_parts[iporb] == parts[iex]: break
 
-       #print(ihorb,iporb,unique_holes[ihorb],holes[iex],unique_parts[iporb],parts[iex])
+#      #print(ihorb,iporb,unique_holes[ihorb],holes[iex],unique_parts[iporb],parts[iex])
 
-        tdm_cmo[ihorb,iporb] = cicoef_normal[iex]
+#       tdm_cmo[ihorb,iporb] = cicoef_normal[iex]
 
-    tdm_cmo = np.array(tdm_cmo)
-    print('tdm_cmo:')
-    print(tdm_cmo)
+#   tdm_cmo = np.array(tdm_cmo)
+#   print('tdm_cmo:')
+#   print(tdm_cmo)
 
-    holnat, sglval, prtnat = np.linalg.svd(tdm_cmo, full_matrices=True)
-    prtnat = prtnat.transpose()
+#   holnat, sglval, prtnat = np.linalg.svd(tdm_cmo, full_matrices=True)
+#   prtnat = prtnat.transpose()
 
-    print(f'\nSingular Values (Sqrt of lambda):')
-    print(" ".join(f"{num:12.6f}" for num in sglval))
-    print(f'\nNatural Hole Orbitals (column wise):')
-    for row in holnat:
-        print(" ".join(f"{num:12.6f}" for num in row))
-    print(f'\nNatural Particle Orbitals (column wise):')
-    for row in prtnat:
-        print(" ".join(f"{num:12.6f}" for num in row))
+#   print(f'\nSingular Values (Sqrt of lambda):')
+#   print(" ".join(f"{num:12.6f}" for num in sglval))
+#   print(f'\nNatural Hole Orbitals (column wise):')
+#   for row in holnat:
+#       print(" ".join(f"{num:12.6f}" for num in row))
+#   print(f'\nNatural Particle Orbitals (column wise):')
+#   for row in prtnat:
+#       print(" ".join(f"{num:12.6f}" for num in row))
 
-   #Read canonical orbitals' cube files if they are not in list_read_orbs and list_read_cube
-   #The two lists are to avoid re-reading
-   #Still, one reading is needed, because natoms etc. need to be returned. This is governed by L_1st_read
-    L_1st_read = True
-   #Assuming all orbitals have their names of 318.cube, 128.cube, etc.
-    orbhol = []
-    orbprt = []
+#  #Read canonical orbitals' cube files if they are not in list_read_orbs and list_read_cube
+#  #The two lists are to avoid re-reading
+#  #Still, one reading is needed, because natoms etc. need to be returned. This is governed by L_1st_read
+#   L_1st_read = True
+#  #Assuming all orbitals have their names of 318.cube, 128.cube, etc.
+#   orbhol = []
+#   orbprt = []
 
-    for i, cmo_h in enumerate(unique_holes):
-        if cmo_h not in list_read_orbs or L_1st_read:
-            cubefile = str(cmo_h) + '.cube'
-            if L_1st_read and cmo_h in list_read_orbs:
-                print(f'Still reading Hole CMO {cubefile} structure although it has been read before, for_L_1st_read')
-                L_structure_only = True
-            else:
-                print(f'Reading Hole CMO {cubefile}')
-                L_structure_only = False
-            Lnorm = True
-           #if L_1st_read: L_structure_only = True
-            natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(cubefile,Lnorm,L_structure_only)
-            if cmo_h not in list_read_orbs:
-                list_read_orbs.append(cmo_h)
-                list_read_cube.append(cube_grid)
-            L_1st_read = False
-        else:
-            print(f'Cube file of Hole CMO {cmo_h} has been read before')
+#   for i, cmo_h in enumerate(unique_holes):
+#       if cmo_h not in list_read_orbs or L_1st_read:
+#           cubefile = str(cmo_h) + '.cube'
+#           if L_1st_read and cmo_h in list_read_orbs:
+#               print(f'Still reading Hole CMO {cubefile} structure although it has been read before, for_L_1st_read')
+#               L_structure_only = True
+#           else:
+#               print(f'Reading Hole CMO {cubefile}')
+#               L_structure_only = False
+#           Lnorm = True
+#          #if L_1st_read: L_structure_only = True
+#           natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(cubefile,Lnorm,L_structure_only)
+#           if cmo_h not in list_read_orbs:
+#               list_read_orbs.append(cmo_h)
+#               list_read_cube.append(cube_grid)
+#           L_1st_read = False
+#       else:
+#           print(f'Cube file of Hole CMO {cmo_h} has been read before')
 
-        ind_read_cmo_h = list_read_orbs.index(cmo_h)
-        orbhol.append(list_read_cube[ind_read_cmo_h])
+#       ind_read_cmo_h = list_read_orbs.index(cmo_h)
+#       orbhol.append(list_read_cube[ind_read_cmo_h])
 
-    for i, cmo_p in enumerate(unique_parts):
-        if cmo_p not in list_read_orbs:
-            cubefile = str(cmo_p) + '.cube'
-            print(f'Reading Part CMO {cubefile}')
-            Lnorm = True
-            natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(cubefile,Lnorm)
-            list_read_orbs.append(cmo_p)
-            list_read_cube.append(cube_grid)
-        else:
-            print(f'cube file for Part CMO {cmo_p} has been read before')
+#   for i, cmo_p in enumerate(unique_parts):
+#       if cmo_p not in list_read_orbs:
+#           cubefile = str(cmo_p) + '.cube'
+#           print(f'Reading Part CMO {cubefile}')
+#           Lnorm = True
+#           natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,cube_grid = read_cube_file(cubefile,Lnorm)
+#           list_read_orbs.append(cmo_p)
+#           list_read_cube.append(cube_grid)
+#       else:
+#           print(f'cube file for Part CMO {cmo_p} has been read before')
 
-        ind_read_cmo_p = list_read_orbs.index(cmo_p)
-        orbprt.append(list_read_cube[ind_read_cmo_p])
+#       ind_read_cmo_p = list_read_orbs.index(cmo_p)
+#       orbprt.append(list_read_cube[ind_read_cmo_p])
 
-   #print(orbhol[0][0,0,0],orbhol[0][-1,-1,-1])
+#  #print(orbhol[0][0,0,0],orbhol[0][-1,-1,-1])
 
-    if not l_get_nhpo_cube:
-        return natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,None,None,list_read_orbs,list_read_cube
+#   if not l_get_nhpo_cube:
+#       return natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,None,None,list_read_orbs,list_read_cube
 
-   #Get the cube gird of the natural hole and particle orbitals
+#  #Get the cube gird of the natural hole and particle orbitals
 
-    na, nb, nc = orbhol[0].shape[0], orbhol[0].shape[1], orbhol[0].shape[2]
-   #print(na,nb,nc)
-    n_sglval = len(sglval)
-    orbhol_nat = []
-    orbprt_nat = []
-    for ihnat in range(n_sglval):
-        ipnat = ihnat
-        orbsum = np.zeros([na,nb,nc])
-        for ihcmo in range(mhorb):
-            orbsum += orbhol[ihcmo]*holnat[ihcmo,ihnat]
+#   na, nb, nc = orbhol[0].shape[0], orbhol[0].shape[1], orbhol[0].shape[2]
+#  #print(na,nb,nc)
+#   n_sglval = len(sglval)
+#   orbhol_nat = []
+#   orbprt_nat = []
+#   for ihnat in range(n_sglval):
+#       ipnat = ihnat
+#       orbsum = np.zeros([na,nb,nc])
+#       for ihcmo in range(mhorb):
+#           orbsum += orbhol[ihcmo]*holnat[ihcmo,ihnat]
 
-        orbhol_nat.append(orbsum)
-        if debug:
-           dnorm = np.sqrt(np.sum(orbsum*orbsum))
-           print(f'Norm of natural hole orbital {ihnat}: {dnorm}')
+#       orbhol_nat.append(orbsum)
+#       if debug:
+#          dnorm = np.sqrt(np.sum(orbsum*orbsum))
+#          print(f'Norm of natural hole orbital {ihnat}: {dnorm}')
 
-        orbsum = np.zeros([na,nb,nc])
-        for ipcmo in range(nporb):
-            orbsum += orbprt[ipcmo]*prtnat[ipcmo,ipnat]
+#       orbsum = np.zeros([na,nb,nc])
+#       for ipcmo in range(nporb):
+#           orbsum += orbprt[ipcmo]*prtnat[ipcmo,ipnat]
 
-        orbprt_nat.append(orbsum)
-        if debug:
-           dnorm = np.sqrt(np.sum(orbsum*orbsum))
-           print(f'Norm of natural part orbital {ihnat}: {dnorm}')
+#       orbprt_nat.append(orbsum)
+#       if debug:
+#          dnorm = np.sqrt(np.sum(orbsum*orbsum))
+#          print(f'Norm of natural part orbital {ihnat}: {dnorm}')
 
-   #Check orthnormality between natural hole and particle orbitals
-    small = 1.0e-6
-    if debug:
-        for ihp in range(n_sglval):
-            for jhp in range(n_sglval):
-                Shp = np.sum(orbhol_nat[ihp]*orbprt_nat[jhp])
-               #print(ihp,jhp,Shp)
-                assert abs(Shp) < small
+#  #Check orthnormality between natural hole and particle orbitals
+#   small = 1.0e-6
+#   if debug:
+#       for ihp in range(n_sglval):
+#           for jhp in range(n_sglval):
+#               Shp = np.sum(orbhol_nat[ihp]*orbprt_nat[jhp])
+#              #print(ihp,jhp,Shp)
+#               assert abs(Shp) < small
 
-            if jhp > ihp:
-                Shh = np.sum(orbhol_nat[ihp]*orbhol_nat[jhp])
-                Spp = np.sum(orbprt_nat[ihp]*orbprt_nat[jhp])
-                assert abs(Shh) < small
-                assert abs(Spp) < small
-            elif jhp == ihp:
-                Shh = np.sum(orbhol_nat[ihp]*orbhol_nat[jhp])
-                Spp = np.sum(orbprt_nat[ihp]*orbprt_nat[jhp])
-                assert abs(1.0-Shh) < small
-                assert abs(1.0-Spp) < small
+#           if jhp > ihp:
+#               Shh = np.sum(orbhol_nat[ihp]*orbhol_nat[jhp])
+#               Spp = np.sum(orbprt_nat[ihp]*orbprt_nat[jhp])
+#               assert abs(Shh) < small
+#               assert abs(Spp) < small
+#           elif jhp == ihp:
+#               Shh = np.sum(orbhol_nat[ihp]*orbhol_nat[jhp])
+#               Spp = np.sum(orbprt_nat[ihp]*orbprt_nat[jhp])
+#               assert abs(1.0-Shh) < small
+#               assert abs(1.0-Spp) < small
 
-    return natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,orbhol_nat,orbprt_nat, list_read_orbs,list_read_cube
+#   return natoms,crdorg,kabc,abc_grid,iatsrl,crdatm,sglval,orbhol_nat,orbprt_nat, list_read_orbs,list_read_cube
 
 def layer_of_integration(abc_grid,kabc,ilayer,zlayer,Lpbc):
     """
@@ -1515,7 +1515,7 @@ def holprt_pair_energy(hole_cube_file_list,part_cube_file_list,hole_canon_list,p
     for row in H_ortho:
         print(" ".join(f"{num:12.6f}" for num in row))
 
-def symmetric_orthogonalization(S):
+def symmetric_orthogonalization_old(S):
     """
     Given a symmetric overlap matrix, S, give the symmetric orthogonalization matrix O
     X^T S X = s_diagonal, O = X s_diagonal^{-1/2} X^T
@@ -1530,6 +1530,18 @@ def symmetric_orthogonalization(S):
    #for row in S_test:
    #    print(" ".join(f"{num:12.6f}" for num in row))
 
+    return O
+
+def symmetric_orthogonalization(S, eps=1e-10):
+    S = 0.5 * (S + S.conj().T)
+    w, X = np.linalg.eigh(S)
+    if not np.all(np.isfinite(w)):
+        raise ValueError("Overlap eigenvalues contain NaN/Inf.")
+    wmax = np.max(np.abs(w)) if w.size else 0.0
+    thresh = eps * max(1.0, wmax)
+    w_clipped = np.clip(w, thresh, None)
+    inv_sqrt = 1.0 / np.sqrt(w_clipped)
+    O = (X * inv_sqrt) @ X.conj().T
     return O
 
 def purify_k_orbitals(list_input_cube_files,ncell,kmesh,output_filename):
