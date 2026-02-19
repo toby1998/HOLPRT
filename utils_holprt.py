@@ -2,6 +2,18 @@ import numpy as np
 import sys, array, copy
 import matplotlib.pyplot as plt
 
+def _resolve_path(p, base_dir=None):
+    """Return p if it exists; else try base_dir/p."""
+    if p is None:
+        return p
+    if file_exists(p):
+        return p
+    if base_dir is not None:
+        q = os.path.join(base_dir, p)
+        if file_exists(q):
+            return q
+    return p  # let downstream throw a clear error if missing
+
 def file_exists(filnam):
     """
     :param filnam: Name of a file.
